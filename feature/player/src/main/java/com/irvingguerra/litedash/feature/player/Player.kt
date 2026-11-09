@@ -46,6 +46,8 @@ class PlayerState(
     /** Conectando o cargando (la radio tarda unos segundos en arrancar). */
     val buffering: Boolean,
     val error: String?,
+    /** Cargada con [Player.cue]: lista en pausa, aún sin abrir el audio. */
+    val cued: Boolean = false,
 ) {
     val current: Playable? get() = queue.getOrNull(index)
 
@@ -111,6 +113,25 @@ object Player {
         start(item)
     }
 
+    /**
+     * Deja [queue] lista en [index], en pausa: la sesión de medios la publica (la pieza la muestra y
+     * play la hace sonar) pero no abre el audio, no pide el foco ni pone el aviso del reproductor.
+     */
+    fun cue(source: PlayerSource, queue: List<Playable>, index: Int) {
+        val item = queue.getOrNull(index) ?: return
+        requests++
+        val myLoad = ++load
+        releaseAudio()
+        resumeAfterFocus = false
+        state = PlayerState(source, queue, index, playing = false, buffering = false, error = null, cued = true)
+        // Sin aviso mientras no suene (el de lo que hubiera antes se va).
+        PlaybackService.stop(app)
+        ensureSession()
+        if (item is Track) watchUsb() else unwatchUsb()
+        publishMetadata(item, null)
+        io.execute { val art = artworkOf(item); main.post { if (myLoad == load) publishMetadata(item, art) } }
+    }
+
     fun resume() {
         val item = state.current ?: return
         // La radio en pausa se desconecta: play la vuelve a abrir (igual si se canceló la carga o falló).
@@ -127,6 +148,8 @@ object Player {
 
     fun pause() {
         resumeAfterFocus = false
+        // Cargada con [cue]: no suena nada.
+        if (state.cued) return
         if (state.buffering || aac != null) {
             // Pausar mientras carga (o una radio en vivo) = cortar; play la vuelve a abrir.
             load++
@@ -185,6 +208,9 @@ object Player {
     private fun start(item: Playable) {
         val myLoad = ++load
         releaseAudio()
+        // Ya se abre el audio: deja de estar solo cargada.
+        val s = state
+        if (s.cued) state = PlayerState(s.source, s.queue, s.index, s.playing, s.buffering, s.error, cued = false)
         if (item is Track) watchUsb() else unwatchUsb()
         publishMetadata(item, null)
         PlaybackService.update(app)
@@ -249,13 +275,13 @@ object Player {
     private fun fail(message: String) {
         load++
         releaseAudio()
-        state = PlayerState(state.source, state.queue, state.index, playing = false, buffering = false, error = message)
+        state = PlayerState(state.source, state.queue, state.index, playing = false, buffering = false, error = message, cued = state.cued)
         publishState()
         PlaybackService.update(app)
     }
 
     private fun update(playing: Boolean = state.playing, buffering: Boolean = state.buffering) {
-        state = PlayerState(state.source, state.queue, state.index, playing, buffering, null)
+        state = PlayerState(state.source, state.queue, state.index, playing, buffering, null, state.cued)
         publishState()
         PlaybackService.update(app)
     }
