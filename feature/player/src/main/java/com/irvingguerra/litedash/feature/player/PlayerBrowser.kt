@@ -1,8 +1,5 @@
 package com.irvingguerra.litedash.feature.player
 
-import android.content.BroadcastReceiver
-import android.content.Context
-import android.content.Intent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -37,7 +34,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.core.content.ContextCompat
 import com.irvingguerra.litedash.core.ui.Button
 import com.irvingguerra.litedash.core.ui.Icon
 import com.irvingguerra.litedash.core.ui.IconButton
@@ -49,6 +45,7 @@ import com.irvingguerra.litedash.core.ui.Segmented
 import com.irvingguerra.litedash.core.ui.TextInput
 import com.irvingguerra.litedash.core.ui.Typography
 import com.irvingguerra.litedash.feature.music.Drive
+import com.irvingguerra.litedash.feature.music.DriveEvent
 import com.irvingguerra.litedash.feature.music.Drives
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -107,14 +104,9 @@ private fun LibraryBrowser(onPicked: () -> Unit, modifier: Modifier) {
     // Al conectar o sacar una memoria (o al terminar de indexarla) se vuelve a leer.
     var mounts by remember { mutableIntStateOf(0) }
     DisposableEffect(Unit) {
-        val receiver = object : BroadcastReceiver() {
-            override fun onReceive(c: Context, i: Intent) {
-                Drives.changed()
-                mounts++
-            }
-        }
-        ContextCompat.registerReceiver(context, receiver, Drives.mediaFilter(scanner = true), ContextCompat.RECEIVER_EXPORTED)
-        onDispose { runCatching { context.unregisterReceiver(receiver) } }
+        val listener: (DriveEvent) -> Unit = { mounts++ }
+        Drives.watch(context, listener)
+        onDispose { Drives.unwatch(listener) }
     }
     // Elegir la carpeta de la música con el selector de Android: sirve aunque la pantalla no deje
     // leer la memoria directo (pasaba en una AC8227L con Android 13: "no tiene música").
