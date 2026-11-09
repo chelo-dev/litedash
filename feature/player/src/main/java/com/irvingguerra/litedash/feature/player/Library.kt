@@ -49,8 +49,8 @@ object Library {
     val noticePermission: List<String>
         get() = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) listOf(Manifest.permission.POST_NOTIFICATIONS) else emptyList()
 
-    // Lo último que se leyó con música y de qué memorias (y montajes) salió: abrir la biblioteca
-    // o tocar USB otra vez no relee la memoria. Solo se guarda si hubo canciones.
+    // Lo último que se leyó con música y de qué memorias (montajes e índice de Android) salió: abrir
+    // la biblioteca o tocar USB otra vez no relee la memoria. Solo se guarda si hubo canciones.
     @Volatile
     private var cache: Pair<String, Pair<Drive?, List<Track>>>? = null
 
@@ -63,11 +63,33 @@ object Library {
     fun find(context: Context): Pair<Drive?, List<Track>> {
         val drives = Drives.list(context)
         val folder = folderDrive(context)
-        val key = (drives.map { it.id } + listOfNotNull(folder?.id) + Drives.revision.toString()).joinToString("|")
-        cache?.takeIf { it.first == key }?.let { return it.second }
+        val key = (drives.map { it.id } + listOfNotNull(folder?.id) + Drives.revision.toString() + generations(context, drives)).joinToString("|")
+        cache?.takeIf { it.first == key && stillThere(context, it.second.second) }?.let { return it.second }
         val found = (drives + listOfNotNull(folder)).firstNotNullOfOrNull { d -> tracks(context, d).takeIf { it.isNotEmpty() }?.let { d to it } }
         if (found != null) cache = key to found
         return found ?: (drives.firstOrNull() to emptyList())
+    }
+
+    /**
+     * API 30+: la versión del índice de Android de cada memoria. Cambia al reconectarla (aunque nadie
+     * escuchara los avisos) y mientras la indexa: la caché no devuelve canciones viejas ni a medias.
+     */
+    private fun generations(context: Context, drives: List<Drive>): List<String> {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return emptyList()
+        return drives.mapNotNull { d -> d.volume?.let { v -> runCatching { MediaStore.getGeneration(context, v) }.getOrNull()?.toString() } }
+    }
+
+    /**
+     * API < 30 (sin versión del índice): la primera canción de MediaStore sigue existiendo. Al reconectar
+     * la memoria MediaStore da ids nuevos: si ya no está, se relee. Las de archivo o de la carpeta
+     * elegida no cambian al reconectar.
+     */
+    private fun stillThere(context: Context, tracks: List<Track>): Boolean {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) return true
+        val uri = tracks.firstOrNull { it.uri.authority == MediaStore.AUTHORITY }?.uri ?: return true
+        return runCatching {
+            context.contentResolver.query(uri, arrayOf(MediaStore.Audio.Media._ID), null, null, null)?.use { it.moveToFirst() } == true
+        }.getOrDefault(false)
     }
 
     /** La carpeta elegida como "memoria" (si sigue habiendo permiso para leerla). */
