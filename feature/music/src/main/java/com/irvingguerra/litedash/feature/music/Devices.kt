@@ -145,9 +145,27 @@ class Drive(
     val volume: String?,
     /** Carpeta raíz de la memoria (para filtrar por ruta antes de la API 29); null si no se sabe. */
     val path: String?,
-    /** Identificador estable de la memoria (para recordar lo último que sonó). */
+    /**
+     * Identificador estable de la memoria (para recordar lo último que sonó): su UUID; sin él,
+     * su carpeta raíz (dos memorias sin UUID tienen el mismo nombre); y si tampoco, su nombre.
+     */
     val id: String,
 )
+
+/** Lo que pasó con una memoria; se entrega en el hilo principal. */
+sealed interface DriveEvent {
+    /** Se puso (o se montó) [drive]. */
+    data class Added(val drive: Drive) : DriveEvent
+
+    /** Se quitó (o se desmontó) [drive]. */
+    data class Removed(val drive: Drive) : DriveEvent
+
+    /** Android terminó de indexar la memoria en [path] (ACTION_MEDIA_SCANNER_FINISHED). */
+    data class Indexed(val path: String?) : DriveEvent
+
+    /** Android vio una memoria que no pudo montar (ACTION_MEDIA_UNMOUNTABLE). Sin uso hasta la SPEC 02. */
+    data class Unmountable(val path: String?) : DriveEvent
+}
 
 /** Memorias USB (y tarjetas) conectadas a la pantalla: las usan la pieza y el reproductor propio. */
 object Drives {
@@ -182,11 +200,12 @@ object Drives {
                 .filter { it.isRemovable && it.state == Environment.MEDIA_MOUNTED }
                 .map { v ->
                     val uuid = v.uuid
+                    val path = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) v.directory?.path else uuid?.let { "/storage/$it" }
                     Drive(
                         name = v.getDescription(context),
                         volume = uuid?.lowercase()?.takeIf { it in volumes },
-                        path = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) v.directory?.path else uuid?.let { "/storage/$it" },
-                        id = uuid ?: v.getDescription(context),
+                        path = path,
+                        id = uuid ?: path ?: v.getDescription(context),
                     )
                 }
         } else {
@@ -201,4 +220,15 @@ object Drives {
 
     /** Nombre de la primera memoria conectada; null si no hay. */
     fun mounted(context: Context): String? = list(context).firstOrNull()?.name
+
+    /**
+     * Qué memorias se fueron y cuáles llegaron entre [before] y [after], comparando por [Drive.id]
+     * (el nombre se repite entre memorias). Primero las que se fueron, luego las que llegaron.
+     */
+    internal fun diff(before: List<Drive>, after: List<Drive>): List<DriveEvent> {
+        val beforeIds = before.mapTo(HashSet()) { it.id }
+        val afterIds = after.mapTo(HashSet()) { it.id }
+        return before.filter { it.id !in afterIds }.map { DriveEvent.Removed(it) } +
+            after.filter { it.id !in beforeIds }.map { DriveEvent.Added(it) }
+    }
 }
