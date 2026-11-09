@@ -59,7 +59,8 @@ internal object UsbAutoSelect {
 
     // --- El vigilante: todo en el hilo principal. ---
 
-    private val main = Handler(Looper.getMainLooper())
+    // Perezoso: [decide] se prueba en la JVM, donde no hay Looper.
+    private val main by lazy { Handler(Looper.getMainLooper()) }
     private var app: Context? = null
     private var music: MusicRepository? = null
 
