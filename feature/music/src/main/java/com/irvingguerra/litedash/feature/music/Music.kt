@@ -68,6 +68,9 @@ private val SOURCE_WORDS = mapOf(
     SourceKind.RADIO to listOf("radio", "fm"),
 )
 
+/** Apps de Bluetooth de marca conocidas (chip propio): se prefieren sobre adivinar por nombre. */
+private val KNOWN_BT = setOf("com.syu.bt", "com.tw.bt", "com.microntek.bt", "com.clw.btmusic")
+
 /** Cuánto se espera a que la app despertada empiece a sonar antes de abrirla. */
 private const val WAKE_TIMEOUT_MS = 4_000L
 /** Tras abrir una radio sin control, cuánto se espera para regresar al inicio (y luego para anotar si sigue el audio). */
@@ -271,11 +274,31 @@ class MusicRepository(private val context: Context) {
     val radioHasBoth: Boolean get() = ownRadio && sourceApps[SourceKind.RADIO] != null
 
     /**
+     * Deja una sola fuente sonando: calla la USB propia (salvo [keep]) y toda sesión de la pieza
+     * Música que esté sonando (salvo [keep] y la radio, que vive en su propia pieza). La música
+     * "a ciegas" (Bluetooth/FM sin sesión que LiteDash da por sonando) se calla con la tecla de
+     * pausa a su receptor. No cambia [active].
+     */
+    private fun stopOthers(keep: String?) {
+        if (keep != ownPackage) ownPause?.invoke()
+        for (c in sessions()) {
+            val p = c.packageName
+            if (p == keep || isRadio(p)) continue
+            if (c.playbackState?.state == PlaybackState.STATE_PLAYING) {
+                runCatching { c.transportControls.pause() }
+            }
+        }
+        val blind = music.song?.takeIf { it.blind && it.playing && it.pkg.isNotBlank() }
+        if (blind != null && blind.pkg != keep) press(music, KeyEvent.KEYCODE_MEDIA_PAUSE)
+    }
+
+    /**
      * Tocaron USB: que suene el reproductor propio (sin cambiar la app elegida). Busca qué tocar
      * en segundo plano; si no hay nada, [onEmpty] (la vista abre la biblioteca para escoger).
      */
     fun playOwn(onEmpty: () -> Unit) {
         val play = ownPlay ?: return
+        stopOthers(ownPackage)
         val token = ++ownToken
         active = ownPackage
         ownPending = true
@@ -751,7 +774,7 @@ class MusicRepository(private val context: Context) {
             lastSavedApp = c.packageName
             store.edit().putString(KEY_LAST_APP, c.packageName).apply()
         }
-        song = Song(
+        song = withCover(Song(
             title = title,
             artist = m.text(MediaMetadata.METADATA_KEY_ARTIST, MediaMetadata.METADATA_KEY_ALBUM_ARTIST).ifBlank { shown?.second.orEmpty() },
             app = app,
@@ -772,7 +795,7 @@ class MusicRepository(private val context: Context) {
             buffering = state?.state == PlaybackState.STATE_BUFFERING || state?.state == PlaybackState.STATE_CONNECTING,
             error = state?.takeIf { it.state == PlaybackState.STATE_ERROR }?.errorMessage?.toString(),
             blind = assumed != null,
-        )
+        ))
         }
 
         /**
@@ -788,7 +811,7 @@ class MusicRepository(private val context: Context) {
             val playing = sent ?: h.playing ?: true
             if (h.title == null && !playing) return null
             val title = h.title ?: app.ifBlank { if (h.bluetooth) context.getString(R.string.source_bluetooth) else return null }
-            return Song(
+            return withCover(Song(
                 title = title,
                 artist = h.artist.orEmpty(),
                 app = app,
@@ -805,7 +828,7 @@ class MusicRepository(private val context: Context) {
                 buffering = false,
                 error = null,
                 blind = true,
-            )
+            ))
         }
 
         /** Lo que LiteDash supone de la app a la que le mandó play o pausa ([assume]). */
@@ -833,6 +856,30 @@ class MusicRepository(private val context: Context) {
                 error = null,
                 blind = true,
             )
+        }
+
+        /**
+         * Carátula de respaldo para la música por Bluetooth: si la sesión (o el aviso) no trajo
+         * carátula pero sí título y artista, se toma la ya resuelta ([CoverArt.cached], en memoria)
+         * o se busca en iTunes ([CoverArt.fetch], que avisa en el hilo principal solo si sigue
+         * siendo la misma canción). Fuera de Bluetooth no se busca: su carátula ya llega sola.
+         */
+        private fun withCover(s: Song): Song {
+            if (s.artwork != null || s.source != SourceKind.BLUETOOTH) return s
+            val title = s.title
+            val artist = s.artist
+            if (title.isBlank() || artist.isBlank()) return s
+            val cached = CoverArt.cached(title, artist)
+            if (cached == null) {
+                CoverArt.fetch(context, title, artist) { bmp ->
+                    val cur = song
+                    if (bmp != null && cur != null && cur.artwork == null && cur.title == title && cur.artist == artist) {
+                        song = cur.copy(artwork = bmp)
+                    }
+                }
+                return s
+            }
+            return s.copy(artwork = cached)
         }
 
         /**
@@ -953,7 +1000,7 @@ class MusicRepository(private val context: Context) {
     fun switchTo(pkg: String) {
         ownToken++
         ownPending = false
-        ownPause?.invoke()
+        stopOthers(pkg)
         if (music.assumedPkg != pkg) music.forget()
         active = pkg
         if (users > 0) choose(sessions())
@@ -1280,10 +1327,16 @@ class MusicRepository(private val context: Context) {
             pm.queryIntentActivities(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER), 0)
                 .map { it.activityInfo.packageName }.toSet()
         }.getOrDefault(emptySet())
-        val candidates = systemPlayers().filter { it in launchable }.map { pkg -> pkg to tokens(pkg, appLabel(pkg)) }
-        val found = SOURCE_WORDS.mapNotNull { (kind, words) ->
-            candidates.filter { (_, t) -> words.any { it in t } }.singleOrNull()?.let { kind to it.first }
-        }.toMap()
+        val players = systemPlayers().filter { it in launchable }
+        val candidates = players.map { pkg -> pkg to tokens(pkg, appLabel(pkg)) }
+        // Bluetooth: primero una app de marca conocida (chip propio, la más fiable); si no, por nombre.
+        val bluetooth = players.firstOrNull { it in KNOWN_BT }
+            ?: candidates.filter { (_, t) -> SOURCE_WORDS.getValue(SourceKind.BLUETOOTH).any { it in t } }.singleOrNull()?.first
+        val radio = candidates.filter { (_, t) -> SOURCE_WORDS.getValue(SourceKind.RADIO).any { it in t } }.singleOrNull()?.first
+        val found = buildMap {
+            bluetooth?.let { put(SourceKind.BLUETOOTH, it) }
+            radio?.let { put(SourceKind.RADIO, it) }
+        }
         if (found.isEmpty()) return
         mainHandler.post { for ((kind, pkg) in found) if (kind !in sourceApps) setSource(kind, pkg) }
     }

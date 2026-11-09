@@ -1,9 +1,6 @@
 package com.irvingguerra.litedash
 
 import androidx.compose.foundation.layout.Column
-import android.Manifest
-import android.content.pm.PackageManager
-import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -65,22 +62,6 @@ fun MusicSettings(d: Dependencies) {
     Label(stringResource(R.string.music_help), Typography.small, LocalColors.current.textMuted)
 }
 
-/**
- * La app de tu pantalla que toca la música del celular por Bluetooth (sale como botón Bluetooth
- * en la música en grande). USB no se enlaza: es el reproductor de LiteDash ([UsbPlayerCard]).
- */
-@Composable
-fun MusicSourcesSettings(d: Dependencies) {
-    val apps = rememberApps(d.apps).orEmpty()
-    var choosing by remember { mutableStateOf(false) }
-    if (!d.music.bluetoothBuiltIn) {
-        SourceRow(d, SourceKind.BLUETOOTH, apps, choosing) { choosing = it }
-    } else {
-        // El Bluetooth de Android ya se usa solo: no hay app que enlazar.
-        Label(stringResource(R.string.bt_builtin_note), Typography.small, LocalColors.current.textMuted)
-    }
-    BluetoothNamePermission()
-}
 
 /**
  * El reproductor USB de LiteDash (siempre activo, sin switch: es el de fábrica), si la pantalla no
@@ -168,23 +149,10 @@ fun rememberInternetRadioToggle(d: Dependencies): (Boolean) -> Unit {
     }
 }
 
-/**
- * Desde Android 12 ver el nombre del celular conectado pide BLUETOOTH_CONNECT (el mismo
- * permiso del Taller): un botón para darlo si aún no está.
- */
-@Composable
-private fun BluetoothNamePermission() {
-    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return
-    val context = LocalContext.current
-    var granted by remember { mutableStateOf(context.checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED) }
-    if (granted) return
-    val ask = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted = it }
-    Button(stringResource(R.string.bluetooth_name_permission), { ask.launch(Manifest.permission.BLUETOOTH_CONNECT) }, Modifier.padding(bottom = 6.dp))
-}
 
 /** Buscador de apps instaladas: escribir y tocar una la elige ([selected] va resaltada). */
 @Composable
-private fun AppSearch(apps: List<App>, selected: String?, onPick: (String) -> Unit) {
+internal fun AppSearch(apps: List<App>, selected: String?, onPick: (String) -> Unit) {
     var query by remember { mutableStateOf("") }
     TextInput(query, { query = it }, stringResource(R.string.search_app), Modifier.fillMaxWidth(), icon = true)
     val q = normalize(query.trim())

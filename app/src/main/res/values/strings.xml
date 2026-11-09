@@ -327,8 +327,6 @@
         <item quantity="many">¿Bajar el modelo 3D nuevo de %1$d autos?</item>
     </plurals>
     <string name="music_other_app">Otra app…</string>
-    <string name="music_sources">Música por Bluetooth</string>
-    <string name="music_sources_help">La app de tu pantalla que toca la música de tu celular. Sale como botón Bluetooth en la música en grande; LiteDash la adivina por su nombre y aquí la cambias.</string>
     <string name="source_unlinked">Sin enlazar</string>
     <string name="source_choose">Elegir</string>
     <string name="source_remove">Quitar</string>
@@ -526,11 +524,12 @@
     <string name="bluetooth_off">El Bluetooth de la pantalla está apagado.</string>
     <string name="bluetooth_turn_on">Encender Bluetooth</string>
     <!-- Vincular el celular (Ajustes → Apps → Música). -->
-    <string name="bt_pair">Vincular celular (Bluetooth)</string>
-    <string name="bt_pair_help">Empareja tu celular con esta pantalla y, si ya no lo quieres, olvídalo. La música se controla desde la música en grande, sin abrir ninguna app.</string>
-    <string name="bt_builtin_note">Tu pantalla usa el Bluetooth de Android: no hace falta enlazar ninguna app.</string>
-    <string name="bt_own_pair">Tu pantalla vincula el celular desde su propia app de Bluetooth: ábrela aquí.</string>
-    <string name="bt_open_app">Abrir su app</string>
+    <string name="bt_pair">Vincular celular</string>
+    <string name="bt_pair_help">Empareja tu celular con esta pantalla para escuchar su música, y olvídalo cuando quieras. La música se controla desde la música en grande.</string>
+    <string name="bt_own_pair">Tu pantalla empareja el celular desde su propia app de Bluetooth.</string>
+    <string name="bt_open_app">Abrir la app de Bluetooth</string>
+    <string name="bt_pick_help">¿Qué app de tu pantalla reproduce la música del celular?</string>
+    <string name="bt_own_help">El título y el artista los manda tu pantalla; si no aparecen, es que su app de Bluetooth no los envía.</string>
     <string name="bt_permission">Dar permisos de Bluetooth</string>
     <string name="bt_permission_help">Para buscar y vincular celulares, LiteDash necesita permiso del Bluetooth (buscar cerca y emparejar).</string>
     <string name="bt_connected">Celular conectado: %1$s</string>

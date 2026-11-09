@@ -319,8 +319,6 @@
         <item quantity="other">Download the new 3D model of %1$d cars?</item>
     </plurals>
     <string name="music_other_app">Another app…</string>
-    <string name="music_sources">Bluetooth music</string>
-    <string name="music_sources_help">Your screen\'s app that plays music from your phone. It shows up as the Bluetooth button in the big music view; LiteDash guesses it by name and you can change it here.</string>
     <string name="source_unlinked">Not linked</string>
     <string name="source_choose">Choose</string>
     <string name="source_remove">Remove</string>
@@ -506,11 +504,12 @@
     <string name="obd_usb_found">USB cable</string>
     <string name="bluetooth_off">The head unit\'s Bluetooth is off.</string>
     <string name="bluetooth_turn_on">Turn on Bluetooth</string>
-    <string name="bt_pair">Pair phone (Bluetooth)</string>
-    <string name="bt_pair_help">Pair your phone with this head unit, or forget it when you no longer want it. Music is controlled from the big music widget, without opening any app.</string>
-    <string name="bt_builtin_note">Your head unit uses Android\'s Bluetooth: no app to link.</string>
-    <string name="bt_own_pair">Your head unit pairs the phone from its own Bluetooth app: open it here.</string>
-    <string name="bt_open_app">Open its app</string>
+    <string name="bt_pair">Pair phone</string>
+    <string name="bt_pair_help">Pair your phone with this head unit to play its music, or forget it when you want. Music is controlled from the big music widget.</string>
+    <string name="bt_own_pair">Your head unit pairs the phone from its own Bluetooth app.</string>
+    <string name="bt_open_app">Open the Bluetooth app</string>
+    <string name="bt_pick_help">Which app on your head unit plays music from your phone?</string>
+    <string name="bt_own_help">Title and artist come from your head unit; if they don\'t show, its Bluetooth app doesn\'t send them.</string>
     <string name="bt_permission">Give Bluetooth permissions</string>
     <string name="bt_permission_help">To find and pair phones, LiteDash needs Bluetooth permission (nearby scan and pairing).</string>
     <string name="bt_connected">Phone connected: %1$s</string>

@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
@@ -37,6 +38,7 @@ import com.irvingguerra.litedash.core.ui.Button
 import com.irvingguerra.litedash.core.ui.Label
 import com.irvingguerra.litedash.core.ui.LocalColors
 import com.irvingguerra.litedash.core.ui.Typography
+import com.irvingguerra.litedash.feature.apps.rememberApps
 import com.irvingguerra.litedash.feature.music.SourceKind
 
 /**
@@ -50,12 +52,25 @@ fun BluetoothSettings(d: Dependencies) {
     val c = LocalColors.current
     val adapter = remember { context.getSystemService(BluetoothManager::class.java)?.adapter }
 
-    // Sin el Bluetooth de Android (o sin el perfil de música AVRCP): vincula desde su propia app.
+    // Sin el Bluetooth de Android (o sin el perfil de música AVRCP): su propia app.
     if (adapter == null || !d.music.bluetoothBuiltIn) {
         Label(stringResource(R.string.bt_own_pair), Typography.body, c.textMuted)
-        if (d.music.sourceApps[SourceKind.BLUETOOTH] != null) {
-            Button(stringResource(R.string.bt_open_app), { d.music.openBluetoothApp() })
+        val apps = rememberApps(d.apps).orEmpty()
+        val app = d.music.sourceApps[SourceKind.BLUETOOTH]
+        var choosing by remember { mutableStateOf(false) }
+        if (app == null) {
+            Label(stringResource(R.string.bt_pick_help), Typography.small, c.textMuted)
+            Button(stringResource(R.string.source_choose), { choosing = !choosing }, primary = choosing)
+        } else {
+            Button(stringResource(R.string.bt_open_app), { d.music.openBluetoothApp() }, primary = true)
+            Button(stringResource(R.string.source_choose), { choosing = !choosing }, primary = choosing)
         }
+        if (choosing) {
+            if (app != null) Label(stringResource(R.string.bt_pick_help), Typography.small, c.textMuted)
+            AppSearch(apps, app) { d.music.setSource(SourceKind.BLUETOOTH, it); choosing = false }
+        }
+        Label(stringResource(R.string.bt_own_help), Typography.small, c.textMuted)
+        BluetoothNamePermission()
         return
     }
 
@@ -152,6 +167,17 @@ fun BluetoothSettings(d: Dependencies) {
             }
         }
     }
+}
+
+/** Desde Android 12, ver el nombre del celular conectado pide BLUETOOTH_CONNECT: un botón para darlo. */
+@Composable
+private fun BluetoothNamePermission() {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return
+    val context = LocalContext.current
+    var granted by remember { mutableStateOf(context.checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED) }
+    if (granted) return
+    val ask = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted = it }
+    Button(stringResource(R.string.bluetooth_name_permission), { ask.launch(Manifest.permission.BLUETOOTH_CONNECT) }, Modifier.padding(bottom = 6.dp))
 }
 
 @SuppressLint("MissingPermission")

@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.size
@@ -27,6 +28,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -120,11 +122,11 @@ fun SourceKind.label(): String = stringResource(
 )
 
 /**
- * Fila de fuentes como en un estéreo: USB (siempre: el reproductor de LiteDash), tu app de
- * música (si elegiste una) y Bluetooth (si hay app enlazada). Cada chip se marca por lo que
- * eligió el usuario, no por lo último que sonó. Tocar uno cierra la biblioteca ([onSelect]) y
- * lo pone a sonar; USB sin nada que tocar abre su biblioteca ([onBrowse]). Con la biblioteca
- * abierta ([browsing]) se marca USB.
+ * Sub-pestañas de fuente como en un estéreo: USB (siempre: el reproductor de LiteDash), tu app de
+ * música (si elegiste una) y Bluetooth (si hay app enlazada). Una sola activa: tocarla calla la que
+ * sonaba y la pone a sonar; se marca por lo que eligió el usuario, no por lo último que sonó. Tocar
+ * una cierra la biblioteca ([onSelect]) y la pone a sonar; USB sin nada que tocar abre su biblioteca
+ * ([onBrowse]). Con la biblioteca abierta ([browsing]) se marca USB.
  */
 @Composable
 internal fun SourceRow(
@@ -143,31 +145,37 @@ internal fun SourceRow(
     val app = repo.preferred?.takeIf { it != bluetooth && !repo.isOwn(it) }
     // Sin nada tocado, manda tu app de música; si no hay, lo que suene.
     val pick = active ?: app ?: song?.pkg
-    Row(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-        Chip(SourceKind.USB.label(), usb, c) {
+    Row(
+        modifier.fillMaxWidth().clip(RoundedCornerShape(50)).background(c.surfaceHigh).padding(4.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Tab(SourceKind.USB.label(), usb, c) {
             onSelect()
             repo.playOwn(onEmpty = onBrowse)
         }
-        if (app != null) Chip(repo.appName(app), !usb && pick == app, c) {
+        if (app != null) Tab(repo.appName(app), !usb && pick == app, c) {
             onSelect()
             repo.switchTo(app)
         }
-        if (bluetooth != null) Chip(SourceKind.BLUETOOTH.label(), !usb && pick == bluetooth, c) {
+        if (bluetooth != null) Tab(SourceKind.BLUETOOTH.label(), !usb && pick == bluetooth, c) {
             onSelect()
             repo.switchTo(bluetooth)
         }
     }
 }
 
-/** Botón de fuente, redondo y chico (la fila cabe en pantallas chicas). */
+/** Sub-pestaña de fuente, redonda; la fila la reparte a lo ancho y una sola queda marcada. */
 @Composable
-private fun Chip(text: String, selected: Boolean, c: Colors, onClick: () -> Unit) {
+private fun RowScope.Tab(text: String, selected: Boolean, c: Colors, onClick: () -> Unit) {
     Box(
         Modifier
+            .weight(1f)
             .clip(RoundedCornerShape(50))
-            .background(if (selected) c.primary else c.surfaceHigh)
+            .background(if (selected) c.primary else Color.Transparent)
             .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 9.dp),
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+        contentAlignment = Alignment.Center,
     ) { Label(text, Typography.small.copy(fontWeight = FontWeight.SemiBold), if (selected) c.onPrimary else c.text, 1) }
 }
 

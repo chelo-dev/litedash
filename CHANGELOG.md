@@ -20,6 +20,38 @@ Todos los cambios que nota quien usa LiteDash. Formato
 - Al sacar y volver a poner la memoria con la música fuera de pantalla, tocar USB ya no se queda con
   la lista vieja (ni con una a medias mientras Android la lee).
 
+## [1.4.106] - 2026-11-08
+
+### Mejorado
+- **Una sola música a la vez:** en la música en grande, las fuentes (USB, tu app y Bluetooth) ahora
+  son pestañas claras y solo una suena: al tocar otra, la que estaba sonando se pausa sola. Antes
+  podía quedar, por ejemplo, Spotify sonando a la vez que el Bluetooth.
+
+## [1.4.105] - 2026-11-08
+
+### Mejorado
+- **Música por Bluetooth más clara:** Ajustes → Apps → Música ya no pregunta "elige app o enlaza
+  tu celular"; ahora solo está "Vincular celular", que se adapta a tu pantalla: con el Bluetooth
+  de Android te deja emparejar (o quitar) el celular, y con su propia app de Bluetooth te abre esa
+  app (y, si no la reconoce, te deja elegirla). Se aclara que el título y el artista los manda la
+  pantalla, no LiteDash.
+
+### Corregido
+- En pantallas con chip de Bluetooth propio, LiteDash ya no confunde la app de música con la de
+  radio: prefiere las apps de Bluetooth de marca conocida.
+
+## [1.4.104] - 2026-11-07
+
+### Arreglado
+- Se quita una línea de diagnóstico interno que salió por error en la 1.4.103. Sin cambios para quien viene de la 1.4.102.
+
+## [1.4.102] - 2026-11-07
+
+### Nuevo
+- **Carátula para la música por Bluetooth:** si el celular no manda la carátula de la canción (pasa
+  con el Bluetooth), LiteDash la busca por el título y el artista en iTunes Search y la guarda para
+  volver a verla sin internet. Si no hay carátula, todo queda igual que antes.
+
 ## [1.4.101] - 2026-11-07
 
 ### Nuevo
