@@ -170,8 +170,10 @@ sealed interface DriveEvent {
 /**
  * Memorias USB (y tarjetas) conectadas a la pantalla: las usan la pieza y el reproductor propio.
  * Es el único que escucha los avisos de Android de las memorias, y solo mientras alguien lo
- * pidió con [watch] (apagado no registra nada).
+ * pidió con [watch] (apagado no registra nada). Mientras, guarda el contexto de la aplicación
+ * (vive lo mismo que el proceso): no es una fuga.
  */
+@SuppressLint("StaticFieldLeak")
 object Drives {
     /** Sube con cada aviso de una memoria mientras alguien escucha (la biblioteca la usa para no releerla). */
     @Volatile

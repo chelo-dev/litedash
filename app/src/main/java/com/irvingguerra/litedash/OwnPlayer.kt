@@ -1,5 +1,6 @@
 package com.irvingguerra.litedash
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.os.Handler
 import android.os.Looper
@@ -17,7 +18,9 @@ private const val SCAN_WAIT_MS = 4_000L
  * Une el reproductor propio ([Player]) con la pieza de música: USB siempre (es el reproductor
  * por defecto), la radio por internet si está prendida, y qué hacer cuando el usuario toca
  * "USB" o "Radio" (seguir con lo último que sonó; si no hay nada, la vista abre la biblioteca).
+ * Guarda el contexto de la aplicación (vive lo mismo que el proceso): no es una fuga.
  */
+@SuppressLint("StaticFieldLeak")
 object OwnPlayer {
     private val main = Handler(Looper.getMainLooper())
 
