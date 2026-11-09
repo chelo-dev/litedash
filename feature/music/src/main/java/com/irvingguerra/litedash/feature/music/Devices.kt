@@ -47,13 +47,12 @@ internal class DeviceWatcher(
                     val d = IntentCompat.getParcelableExtra(i, BluetoothDevice.EXTRA_DEVICE, BluetoothDevice::class.java)
                     if (i.getIntExtra(BluetoothProfile.EXTRA_STATE, -1) == BluetoothProfile.STATE_CONNECTED) setPhone(deviceName(d)) else left(i)
                 }
-                else -> {
-                    Drives.changed()
-                    onUsb(Drives.mounted(context))
-                }
             }
         }
     }
+
+    // Las memorias las escucha [Drives]: cualquier cambio (también el indexado) vuelve a nombrar la memoria.
+    private val drives: (DriveEvent) -> Unit = { onUsb(Drives.mounted(context)) }
 
     private fun setPhone(name: String?) {
         if (name == null) return
@@ -79,17 +78,18 @@ internal class DeviceWatcher(
         }
         // Son avisos del sistema: los receptores deben aceptar avisos de fuera de la app.
         ContextCompat.registerReceiver(context, receiver, filter, ContextCompat.RECEIVER_EXPORTED)
-        // También cuando Android termina de indexar la memoria: la biblioteca que se leyó a medias se relee.
-        ContextCompat.registerReceiver(context, receiver, Drives.mediaFilter(scanner = true), ContextCompat.RECEIVER_EXPORTED)
-        // Sin [Drives.changed]: si mientras no se escuchaba cambió la memoria, la biblioteca lo nota por
-        // su identificador (va en la llave de su caché); abrir o cerrar la música no la hace releer.
+        // [Drives] avisa también cuando Android termina de indexar la memoria: la biblioteca que se leyó
+        // a medias se relee. Empezar a escuchar no sube [Drives.revision]: si mientras no se escuchaba
+        // cambió la memoria, la biblioteca lo nota por su identificador (va en la llave de su caché);
+        // abrir o cerrar la música no la hace releer.
+        Drives.watch(context, drives)
         onUsb(Drives.mounted(context))
         connectedPhone()
     }
 
     fun stop() {
-        // Está registrado dos veces (dos filtros): se quita dos veces.
-        repeat(2) { runCatching { context.unregisterReceiver(receiver) } }
+        runCatching { context.unregisterReceiver(receiver) }
+        Drives.unwatch(drives)
     }
 
     /**
