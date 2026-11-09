@@ -25,6 +25,8 @@ data class Track(
     val durationMs: Long,
     /** Nombre del archivo, para ordenar como en la carpeta. */
     val file: String,
+    /** Id de la memoria de la que salió ([Drive.id]). No entra en [key]: eso lo decide la SPEC 03. */
+    val drive: String = "",
 ) : Playable {
     override val subtitle get() = artist
     /** Por carpeta y archivo, no por id: MediaStore da ids nuevos cada vez que se reconecta la memoria. */
@@ -97,13 +99,13 @@ object Library {
 
     /** Todas las canciones de [drive], ordenadas por carpeta y archivo (como se ven en la memoria). */
     private fun tracks(context: Context, drive: Drive): List<Track> {
-        val found = if (drive.id.startsWith(FOLDER)) folderTracks(context, drive.id.removePrefix(FOLDER).toUri())
-        else indexed(context, drive).ifEmpty { drive.path?.let { scan(File(it)) }.orEmpty() }
+        val found = if (isFolder(drive.id)) folderTracks(context, drive.id.removePrefix(FOLDER).toUri(), drive.id)
+        else indexed(context, drive).ifEmpty { drive.path?.let { scan(File(it), drive.id) }.orEmpty() }
         return found.sortedWith(compareBy<Track, String>(String.CASE_INSENSITIVE_ORDER) { it.folder }.thenBy(String.CASE_INSENSITIVE_ORDER) { it.file })
     }
 
-    /** Las canciones de la carpeta elegida, por el sistema de documentos. */
-    private fun folderTracks(context: Context, tree: Uri): List<Track> {
+    /** Las canciones de la carpeta elegida, por el sistema de documentos ([drive] = su id). */
+    private fun folderTracks(context: Context, tree: Uri, drive: String): List<Track> {
         val cols = arrayOf(DocumentsContract.Document.COLUMN_DOCUMENT_ID, DocumentsContract.Document.COLUMN_DISPLAY_NAME, DocumentsContract.Document.COLUMN_MIME_TYPE)
         return walk(DocumentsContract.getTreeDocumentId(tree), { id ->
             val out = ArrayList<Entry<String>>()
@@ -117,7 +119,7 @@ object Library {
                 }
             }
             out
-        }) { child, name, folder -> Track(DocumentsContract.buildDocumentUriUsingTree(tree, child), name.substringBeforeLast('.'), "", "", folder, 0, name) }
+        }) { child, name, folder -> Track(DocumentsContract.buildDocumentUriUsingTree(tree, child), name.substringBeforeLast('.'), "", "", folder, 0, name, drive) }
     }
 
     /** Las de MediaStore (rápido, con artista, álbum y duración). */
@@ -158,6 +160,7 @@ object Library {
                         folder = folder,
                         durationMs = c.getLong(duration),
                         file = file,
+                        drive = drive.id,
                     )
                 }
             }
@@ -168,10 +171,11 @@ object Library {
     /**
      * Recorre las carpetas de la memoria buscando audio (sin índice de Android): título = nombre
      * del archivo; artista, álbum y duración no se saben sin abrir cada archivo (lento en una USB).
+     * [drive] = el id de la memoria.
      */
-    private fun scan(root: File): List<Track> = walk(root, { dir ->
+    private fun scan(root: File, drive: String): List<Track> = walk(root, { dir ->
         dir.listFiles()?.map { f -> Entry(f, f.name, f.isDirectory, !f.isDirectory && isAudio(f.name)) }
-    }) { f, name, folder -> Track(Uri.fromFile(f), name.substringBeforeLast('.'), "", "", folder, 0, name) }
+    }) { f, name, folder -> Track(Uri.fromFile(f), name.substringBeforeLast('.'), "", "", folder, 0, name, drive) }
 
     /** Un archivo o carpeta dentro de [walk]: [node] es lo que sirve para abrirlo. */
     private class Entry<N>(val node: N, val name: String, val dir: Boolean, val audio: Boolean)
@@ -201,6 +205,12 @@ object Library {
     }
 
     private fun isAudio(name: String) = name.substringAfterLast('.', "").lowercase() in AUDIO
+
+    /**
+     * El id es el de la carpeta elegida con el selector de Android, no el de una memoria: no siempre
+     * se sabe en qué memoria está.
+     */
+    internal fun isFolder(drive: String) = drive.startsWith(FOLDER)
 
     private val AUDIO = setOf("mp3", "m4a", "aac", "flac", "wav", "ogg", "oga", "opus", "amr", "3gp", "mka")
     private val SKIP_DIRS = setOf("Android", "LOST.DIR", "System Volume Information", "\$RECYCLE.BIN")

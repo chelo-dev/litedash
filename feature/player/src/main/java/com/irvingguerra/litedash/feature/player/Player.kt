@@ -2,9 +2,7 @@ package com.irvingguerra.litedash.feature.player
 
 import android.annotation.SuppressLint
 import android.app.PendingIntent
-import android.content.BroadcastReceiver
 import android.content.Context
-import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.media.AudioAttributes
@@ -23,7 +21,7 @@ import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.core.content.ContextCompat
+import com.irvingguerra.litedash.feature.music.DriveEvent
 import com.irvingguerra.litedash.feature.music.Drives
 import java.util.concurrent.Executors
 
@@ -93,7 +91,7 @@ object Player {
     private var resumeAfterFocus = false
     /** Qué versión de la cola va cargándose (una carga vieja no debe pisar a la nueva). */
     private var load = 0
-    private var usbWatcher: BroadcastReceiver? = null
+    private var watchingUsb = false
     /** Canciones sin carátula incrustada: no se vuelve a abrir el archivo cada vez que suenan. */
     private val noArt = HashSet<String>()
 
@@ -371,22 +369,23 @@ object Player {
         else @Suppress("DEPRECATION") audio.abandonAudioFocus(focusListener)
     }
 
-    // --- Si sacan la memoria USB mientras suena, se para (sin ella no hay archivos). ---
+    // --- Si sacan la memoria de la canción, se para (sin ella no hay archivos). Quitar otra no la corta. ---
+
+    private val usbListener: (DriveEvent) -> Unit = { event ->
+        val track = state.current as? Track
+        // La carpeta elegida no siempre dice en qué memoria está: cualquier memoria quitada la para.
+        if (event is DriveEvent.Removed && track != null && (Library.isFolder(track.drive) || track.drive == event.drive.id)) stop()
+    }
 
     private fun watchUsb() {
-        if (usbWatcher != null) return
-        val receiver = object : BroadcastReceiver() {
-            override fun onReceive(c: Context, i: Intent) {
-                Drives.changed()
-                if (i.action != Intent.ACTION_MEDIA_MOUNTED && state.current is Track) stop()
-            }
-        }
-        ContextCompat.registerReceiver(app, receiver, Drives.mediaFilter(), ContextCompat.RECEIVER_EXPORTED)
-        usbWatcher = receiver
+        if (watchingUsb) return
+        watchingUsb = true
+        Drives.watch(app, usbListener)
     }
 
     private fun unwatchUsb() {
-        usbWatcher?.let { runCatching { app.unregisterReceiver(it) } }
-        usbWatcher = null
+        if (!watchingUsb) return
+        watchingUsb = false
+        Drives.unwatch(usbListener)
     }
 }

@@ -178,11 +178,6 @@ object Drives {
     var revision = 0
         private set
 
-    /** Avisar que se puso, quitó o terminó de indexarse una memoria. */
-    fun changed() {
-        revision++
-    }
-
     // Todo en el hilo principal: ahí llaman [watch]/[unwatch] y ahí llegan los avisos.
     private val listeners = mutableListOf<(DriveEvent) -> Unit>()
     private var app: Context? = null
@@ -219,9 +214,8 @@ object Drives {
         val app = context.applicationContext
         this.app = app
         known = list(app)
-        val filter = mediaFilter(scanner = true).apply { addAction(Intent.ACTION_MEDIA_UNMOUNTABLE) }
         // Son avisos del sistema: el receptor debe aceptar avisos de fuera de la app.
-        ContextCompat.registerReceiver(app, receiver, filter, ContextCompat.RECEIVER_EXPORTED)
+        ContextCompat.registerReceiver(app, receiver, mediaFilter(), ContextCompat.RECEIVER_EXPORTED)
     }
 
     /** Dejar de avisar a [listener]; con el último, se quita el receptor. */
@@ -233,15 +227,16 @@ object Drives {
     }
 
     /**
-     * Los avisos de Android al poner o quitar una memoria; con [scanner], también cuando
-     * termina de indexarla (al reconectar tarda unos segundos).
+     * Los avisos de Android al poner o quitar una memoria, al terminar de indexarla (al reconectar
+     * tarda unos segundos) y al no poder montarla.
      */
-    fun mediaFilter(scanner: Boolean = false) = IntentFilter().apply {
+    private fun mediaFilter() = IntentFilter().apply {
         addAction(Intent.ACTION_MEDIA_MOUNTED)
         addAction(Intent.ACTION_MEDIA_UNMOUNTED)
         addAction(Intent.ACTION_MEDIA_EJECT)
         addAction(Intent.ACTION_MEDIA_BAD_REMOVAL)
-        if (scanner) addAction(Intent.ACTION_MEDIA_SCANNER_FINISHED)
+        addAction(Intent.ACTION_MEDIA_SCANNER_FINISHED)
+        addAction(Intent.ACTION_MEDIA_UNMOUNTABLE)
         addDataScheme("file")
     }
 
