@@ -4,6 +4,22 @@ Todos los cambios que nota quien usa LiteDash. Formato
 [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/), versiones
 [SemVer](https://semver.org/lang/es/).
 
+## [Sin publicar]
+
+### Nuevo
+- **Elegir USB al conectar una memoria:** con el ajuste prendido (Ajustes → Apps → Música →
+  Reproductor USB; viene apagado), al conectar una sola memoria con música y sin nada sonando,
+  LiteDash marca USB y deja la canción lista en pausa (la última que sonó, o la primera): toca play
+  para escucharla. No suena ni pausa nada solo. También al abrir LiteDash o prender el ajuste con la
+  memoria ya puesta.
+
+### Corregido
+- Quitar otra memoria (o la tarjeta SD) ya no detiene la música de la USB que suena.
+- El aviso "Memoria USB conectada" nombra la memoria que acabas de conectar, aunque haya una tarjeta
+  SD puesta.
+- Al sacar y volver a poner la memoria con la música fuera de pantalla, tocar USB ya no se queda con
+  la lista vieja (ni con una a medias mientras Android la lee).
+
 ## [1.4.101] - 2026-11-07
 
 ### Nuevo
