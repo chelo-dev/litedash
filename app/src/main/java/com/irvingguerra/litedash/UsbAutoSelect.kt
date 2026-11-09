@@ -67,7 +67,12 @@ internal object UsbAutoSelect {
     private var runs = 0
 
     private val listener: (DriveEvent) -> Unit = { event ->
-        if (event is DriveEvent.Added) evaluate(Trigger.ADDED)
+        when (event) {
+            is DriveEvent.Added -> evaluate(Trigger.ADDED)
+            // Android también avisa al terminar de indexar la memoria interna: esa no cuenta.
+            is DriveEvent.Indexed -> event.path?.let { evaluate(Trigger.INDEXED, it) }
+            else -> Unit
+        }
     }
 
     /** Empieza a vigilar las memorias y evalúa la que ya esté puesta ([Trigger.START]). */
@@ -88,14 +93,16 @@ internal object UsbAutoSelect {
         music = null
     }
 
-    private fun evaluate(trigger: Trigger) {
+    /** [indexed] = la carpeta raíz de la memoria que Android terminó de indexar ([Trigger.INDEXED]). */
+    private fun evaluate(trigger: Trigger, indexed: String? = null) {
         val context = app ?: return
         val music = music ?: return
         // Sin permiso no hay cómo leer la memoria (la biblioteca lo pide al tocar USB).
         if (!Library.hasPermission(context)) return
         val drives = Drives.list(context)
         val s = Player.state
-        val drive = drives.singleOrNull()
+        val drive = if (indexed == null) drives.singleOrNull()
+        else drives.firstOrNull { it.path?.trimEnd('/') == indexed.trimEnd('/') } ?: return
         val action = decide(
             // Solo vigila con el ajuste prendido.
             enabled = true,
