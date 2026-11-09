@@ -2,4 +2,6 @@
 <resources>
     <string name="usb_player">USB player</string>
     <string name="usb_player_help">LiteDash plays the music on your USB drive (folders, artists and albums, with artwork). Tap USB in the big music view.</string>
+    <string name="usb_auto_select">Choose USB when a drive is connected</string>
+    <string name="usb_auto_select_help">If you connect a single drive with music and nothing is playing, LiteDash chooses USB and gets the song ready, paused: tap play to listen.</string>
 </resources>

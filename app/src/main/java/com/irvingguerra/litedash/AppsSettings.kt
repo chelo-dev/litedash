@@ -33,7 +33,7 @@ internal fun AppsSettings(d: Dependencies) {
     val c = LocalColors.current
     when (tabs(listOf(R.string.music, R.string.tab_radio, R.string.tab_navigation, R.string.tab_favorites, R.string.tab_split), APPS_TABS)) {
         0 -> {
-            SettingsCard { UsbPlayerCard() }
+            SettingsCard { UsbPlayerCard(d) }
             SettingsCard(stringResource(R.string.music_app_title)) { MusicSettings(d) }
             SettingsCard(stringResource(R.string.music_sources), stringResource(R.string.music_sources_help)) { MusicSourcesSettings(d) }
             SettingsCard(stringResource(R.string.bt_pair), stringResource(R.string.bt_pair_help)) { BluetoothSettings(d) }

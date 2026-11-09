@@ -83,12 +83,12 @@ fun MusicSourcesSettings(d: Dependencies) {
 }
 
 /**
- * El reproductor USB de LiteDash (siempre activo, sin switch: es el de fábrica) y, si la pantalla
- * no deja leer la memoria, la carpeta de la música (selector de Android; sin carpeta, busca sola
- * en todas las memorias).
+ * El reproductor USB de LiteDash (siempre activo, sin switch: es el de fábrica), si la pantalla no
+ * deja leer la memoria, la carpeta de la música (selector de Android; sin carpeta, busca sola en
+ * todas las memorias), y elegir USB al conectar una memoria (apagado de fábrica).
  */
 @Composable
-fun UsbPlayerCard() {
+fun UsbPlayerCard(d: Dependencies) {
     val context = LocalContext.current
     val c = LocalColors.current
     var folder by remember { mutableStateOf(Library.folderName(context)) }
@@ -108,6 +108,10 @@ fun UsbPlayerCard() {
         if (folder != null) Button(stringResource(R.string.source_remove), { Library.clearFolder(context); folder = null })
     }
     Label(stringResource(R.string.usb_player_help), Typography.small, c.textMuted)
+    SwitchRow(stringResource(R.string.usb_auto_select), d.prefs.usbAutoSelect, { on ->
+        d.prefs.usbAutoSelect = on
+        OwnPlayer.refresh(d.music, d.prefs)
+    }, stringResource(R.string.usb_auto_select_help))
 }
 
 /**

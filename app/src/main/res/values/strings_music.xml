@@ -2,4 +2,6 @@
 <resources>
     <string name="usb_player">Reproductor USB</string>
     <string name="usb_player_help">LiteDash toca la música de tu memoria USB (carpetas, artistas y álbumes, con carátulas). Toca USB en la música en grande.</string>
+    <string name="usb_auto_select">Elegir USB al conectar una memoria</string>
+    <string name="usb_auto_select_help">Si conectas una sola memoria con música y no suena nada, LiteDash elige USB y deja la canción lista en pausa: toca play para escucharla.</string>
 </resources>
