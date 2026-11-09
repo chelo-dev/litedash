@@ -167,9 +167,13 @@ sealed interface DriveEvent {
     data class Unmountable(val path: String?) : DriveEvent
 }
 
-/** Memorias USB (y tarjetas) conectadas a la pantalla: las usan la pieza y el reproductor propio. */
+/**
+ * Memorias USB (y tarjetas) conectadas a la pantalla: las usan la pieza y el reproductor propio.
+ * Es el único que escucha los avisos de Android de las memorias, y solo mientras alguien lo
+ * pidió con [watch] (apagado no registra nada).
+ */
 object Drives {
-    /** Sube cada vez que se pone o se quita una memoria (la biblioteca la usa para no releerla). */
+    /** Sube con cada aviso de una memoria mientras alguien escucha (la biblioteca la usa para no releerla). */
     @Volatile
     var revision = 0
         private set
@@ -177,6 +181,55 @@ object Drives {
     /** Avisar que se puso, quitó o terminó de indexarse una memoria. */
     fun changed() {
         revision++
+    }
+
+    // Todo en el hilo principal: ahí llaman [watch]/[unwatch] y ahí llegan los avisos.
+    private val listeners = mutableListOf<(DriveEvent) -> Unit>()
+    private var app: Context? = null
+    // Las memorias del último aviso, para saber cuál llegó o se fue.
+    private var known: List<Drive> = emptyList()
+    // La memoria que llegó al último (para el aviso "Memoria USB conectada").
+    @Volatile
+    private var lastAdded: String? = null
+
+    private val receiver = object : BroadcastReceiver() {
+        override fun onReceive(c: Context, i: Intent) {
+            val app = app ?: return
+            revision++
+            val now = list(app)
+            val events = diff(known, now).toMutableList()
+            known = now
+            events.lastOrNull { it is DriveEvent.Added }?.let { lastAdded = (it as DriveEvent.Added).drive.id }
+            when (i.action) {
+                Intent.ACTION_MEDIA_SCANNER_FINISHED -> events += DriveEvent.Indexed(i.data?.path)
+                Intent.ACTION_MEDIA_UNMOUNTABLE -> events += DriveEvent.Unmountable(i.data?.path)
+            }
+            for (event in events) listeners.toList().forEach { it(event) }
+        }
+    }
+
+    /**
+     * Avisar a [listener] lo que pase con las memorias (en el hilo principal). El primer usuario
+     * registra el receptor; no se relee nada al empezar: lo ya puesto no se avisa como [DriveEvent.Added].
+     */
+    fun watch(context: Context, listener: (DriveEvent) -> Unit) {
+        if (listener in listeners) return
+        listeners += listener
+        if (listeners.size > 1) return
+        val app = context.applicationContext
+        this.app = app
+        known = list(app)
+        val filter = mediaFilter(scanner = true).apply { addAction(Intent.ACTION_MEDIA_UNMOUNTABLE) }
+        // Son avisos del sistema: el receptor debe aceptar avisos de fuera de la app.
+        ContextCompat.registerReceiver(app, receiver, filter, ContextCompat.RECEIVER_EXPORTED)
+    }
+
+    /** Dejar de avisar a [listener]; con el último, se quita el receptor. */
+    fun unwatch(listener: (DriveEvent) -> Unit) {
+        if (!listeners.remove(listener) || listeners.isNotEmpty()) return
+        app?.let { runCatching { it.unregisterReceiver(receiver) } }
+        app = null
+        known = emptyList()
     }
 
     /**
@@ -218,8 +271,14 @@ object Drives {
         }
     }.getOrDefault(emptyList())
 
-    /** Nombre de la primera memoria conectada; null si no hay. */
-    fun mounted(context: Context): String? = list(context).firstOrNull()?.name
+    /**
+     * Nombre de la memoria que llegó al último y sigue puesta (no la SD o la partición de mapas
+     * que ya estaba); si no se sabe, la primera conectada; null si no hay.
+     */
+    fun mounted(context: Context): String? {
+        val drives = list(context)
+        return (drives.firstOrNull { it.id == lastAdded } ?: drives.firstOrNull())?.name
+    }
 
     /**
      * Qué memorias se fueron y cuáles llegaron entre [before] y [after], comparando por [Drive.id]
