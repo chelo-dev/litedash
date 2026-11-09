@@ -288,6 +288,24 @@ class MusicRepository(private val context: Context) {
         }
     }
 
+    /**
+     * Marca USB como la fuente elegida sin hacerla sonar: el reproductor propio ya tiene la cola en
+     * pausa (con su sesión), así [release] no la suelta. Solo en el hilo principal.
+     */
+    fun selectOwn() {
+        active = ownPackage
+        music.forget()
+        if (users > 0) choose(sessions())
+    }
+
+    /**
+     * Algo suena: una sesión en PLAYING (con el permiso de avisos) o, para lo que no tiene sesión,
+     * el audio de música de Android. Cuenta también al reproductor propio. Solo en el hilo principal.
+     */
+    fun anythingPlaying(): Boolean =
+        (hasPermission() && sessions().any { runCatching { it.playbackState?.state == PlaybackState.STATE_PLAYING }.getOrDefault(false) }) ||
+            musicActive()
+
     private val icons = HashMap<String, Bitmap?>()
     // Nombres de las apps: se piden una vez a Android (es una llamada entre procesos).
     private val labels = HashMap<String, String>()
